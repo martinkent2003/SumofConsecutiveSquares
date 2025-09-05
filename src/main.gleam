@@ -34,3 +34,6 @@ fn logic(arg1: int, arg2: int) {
     <> string.inspect(arg2),
   )
 }
+
+
+//
