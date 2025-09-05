@@ -15,7 +15,11 @@ version = "1.0.0"
 [dependencies]
 gleam_stdlib = ">= 0.44.0 and < 2.0.0"
 gleam_otp = ">= 1.1.0 and < 2.0.0"
+<<<<<<< HEAD
 argv = ">= 1.0.0 and < 2.0.0"
+=======
+argv = ">= 1.0.2 and < 2.0.0"
+>>>>>>> 976a857a1b42d2079402c440b6563fa9a65a8975
 
 [dev-dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"
