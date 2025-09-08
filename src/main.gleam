@@ -5,7 +5,10 @@ import gleam/io
 import gleam/list
 import worker
 
+const work_unit = 1_000_000
+
 pub fn main() {
+  io.println("WorkUnit: " <> int.to_string(work_unit))
   let args = argv.load().arguments
   case args {
     // Parse arguments to int and check for errors
@@ -17,7 +20,6 @@ pub fn main() {
           case parsed2 {
             Ok(n2) -> {
               let inbox: process.Subject(worker.OutMsg) = process.new_subject()
-              logic(inbox, 1, n1, n2)
               let worker_count = logic(inbox, 1, n1, n2)
               collect(inbox, worker_count)
             }
@@ -35,16 +37,16 @@ pub fn main() {
 
 // Loop over all starting points
 fn logic(inbox: process.Subject(worker.OutMsg), i: Int, n: Int, k: Int) -> Int {
-  // end of this chunk = min(i + 9999, n)
-  let chunk_end = case i + 9999 <= n {
-    True -> i + 9999
+  // end of this chunk = min(i + work_unit, n)
+  let chunk_end = case i + work_unit-1 <= n {
+    True -> i + work_unit-1
     False -> n
   }
   worker.start(inbox, i, chunk_end, k)
 
   // Recurse only if the *next* chunk would still start within range
-  case i + 10_000 <= n {
-    True -> 1 + logic(inbox, i + 10_000, n, k)
+  case i + work_unit <= n {
+    True -> 1 + logic(inbox, i + work_unit, n, k)
     False -> 1
   }
 }
@@ -53,7 +55,7 @@ fn collect(inbox: process.Subject(worker.OutMsg), left: Int) {
   case left {
     0 -> Nil
     _ -> {
-      case process.receive(inbox, 10_000) {
+      case process.receive(inbox, work_unit) {
         Ok(worker.FoundIndexes(indexes)) -> {
           // Print each matching starting index
           list.each(indexes, fn(i) { io.println(int.to_string(i)) })
@@ -62,7 +64,6 @@ fn collect(inbox: process.Subject(worker.OutMsg), left: Int) {
         Error(Nil) -> {
           io.println("Timed out waiting for results")
           collect(inbox, left)
-          // keep waiting, or return if you prefer
         }
       }
     }
