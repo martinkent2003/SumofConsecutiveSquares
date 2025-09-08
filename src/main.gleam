@@ -8,7 +8,7 @@ import worker
 const work_unit = 1_000_000
 
 pub fn main() {
-  io.println("WorkUnit: " <> int.to_string(work_unit))
+  //io.println("WorkUnit: " <> int.to_string(work_unit))
   let args = argv.load().arguments
   case args {
     // Parse arguments to int and check for errors
