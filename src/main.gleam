@@ -1,8 +1,8 @@
 import argv
-import gleam/float
+import gleam/erlang/process
 import gleam/int
 import gleam/io
-import gleam/string
+import worker
 
 pub fn main() {
   let args = argv.load().arguments
@@ -14,7 +14,11 @@ pub fn main() {
       case parsed1 {
         Ok(n1) ->
           case parsed2 {
-            Ok(n2) -> logic(1, n1, n2)
+            Ok(n2) -> {
+              let inbox = process.new_subject()
+              logic(inbox, 1, n1, n2)
+              collect(inbox, 10_000)
+            }
             Error(_) -> io.println(arg2 <> " is not a valid integer")
           }
         Error(_) -> io.println(arg1 <> " is not a valid integer")
@@ -27,39 +31,27 @@ pub fn main() {
   }
 }
 
-fn check_sqrt(n: Int) -> Bool {
-  case int.square_root(n) {
-    Ok(root) -> {
-      let root_int: Int = float.round(root)
-      root_int * root_int == n
-    }
-    Error(_) -> False
-  }
-}
-
-fn sum_squares_upto(n: Int) -> Int {
-  n * { n + 1 } * { 2 * n + 1 }
-  |> fn(x) { x / 6 }
-}
-
-fn check_i(i: Int, k: Int) {
-  let end_val = i + k - 1
-  let calc = sum_squares_upto(end_val) - sum_squares_upto(i - 1)
-  case check_sqrt(calc) {
-    True -> {
-      io.println(string.inspect(i) <> ": " <> string.inspect(calc))
-    }
-    False -> Nil
-  }
-}
-
 // Loop over all starting points
-fn logic(i: Int, n: Int, k: Int) {
-  check_i(i, k)
+fn logic(inbox: process.Subject(Int), i: Int, n: Int, k: Int) {
+  case i + 999 < n {
+    True -> worker.start(inbox, i, i + 999, k)
+    False -> worker.start(inbox, i, n, k)
+  }
   case i < n {
     True -> {
-      logic(i + 1, n, k)
+      logic(inbox, i + 1000, n, k)
     }
     False -> Nil
+  }
+}
+
+fn collect(inbox: process.Subject(Int), left: Int) {
+  case left {
+    0 -> Nil
+    _ -> {
+      let assert Ok(n) = process.receive(inbox, 2000)
+      io.println(int.to_string(n))
+      collect(inbox, left - 1)
+    }
   }
 }
