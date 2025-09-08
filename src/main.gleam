@@ -2,6 +2,7 @@ import argv
 import gleam/erlang/process
 import gleam/int
 import gleam/io
+import gleam/list
 import worker
 
 pub fn main() {
@@ -15,9 +16,10 @@ pub fn main() {
         Ok(n1) ->
           case parsed2 {
             Ok(n2) -> {
-              let inbox = process.new_subject()
+              let inbox: process.Subject(worker.OutMsg) = process.new_subject()
               logic(inbox, 1, n1, n2)
-              collect(inbox, 10_000)
+              let worker_count = logic(inbox, 1, n1, n2)
+              collect(inbox, worker_count)
             }
             Error(_) -> io.println(arg2 <> " is not a valid integer")
           }
@@ -32,26 +34,37 @@ pub fn main() {
 }
 
 // Loop over all starting points
-fn logic(inbox: process.Subject(Int), i: Int, n: Int, k: Int) {
-  case i + 999 < n {
-    True -> worker.start(inbox, i, i + 999, k)
-    False -> worker.start(inbox, i, n, k)
+fn logic(inbox: process.Subject(worker.OutMsg), i: Int, n: Int, k: Int) -> Int {
+  // end of this chunk = min(i + 9999, n)
+  let chunk_end = case i + 9999 <= n {
+    True -> i + 9999
+    False -> n
   }
-  case i < n {
-    True -> {
-      logic(inbox, i + 1000, n, k)
-    }
-    False -> Nil
+  worker.start(inbox, i, chunk_end, k)
+
+  // Recurse only if the *next* chunk would still start within range
+  case i + 10_000 <= n {
+    True -> 1 + logic(inbox, i + 10_000, n, k)
+    False -> 1
   }
 }
 
-fn collect(inbox: process.Subject(Int), left: Int) {
+fn collect(inbox: process.Subject(worker.OutMsg), left: Int) {
   case left {
     0 -> Nil
     _ -> {
-      let assert Ok(n) = process.receive(inbox, 2000)
-      io.println(int.to_string(n))
-      collect(inbox, left - 1)
+      case process.receive(inbox, 10_000) {
+        Ok(worker.FoundIndexes(indexes)) -> {
+          // Print each matching starting index
+          list.each(indexes, fn(i) { io.println(int.to_string(i)) })
+          collect(inbox, left - 1)
+        }
+        Error(Nil) -> {
+          io.println("Timed out waiting for results")
+          collect(inbox, left)
+          // keep waiting, or return if you prefer
+        }
+      }
     }
   }
 }
